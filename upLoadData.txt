@@ -1,0 +1,68 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <username>"
+    exit 1
+fi
+
+# Assign the first command-line argument to USER_NAME
+USER_NAME="$1"
+
+NEXTCLOUD_URL="https://jzhang502.duckdns.org:502/nextcloud/remote.php/dav"
+
+LOCAL_FOLDER="./final_csv"
+
+NEXTCLOUD_FOLDER="/405data"
+
+NEXTCLOUD_FOLDER=${NEXTCLOUD_FOLDER%/}/
+
+for file in "$LOCAL_FOLDER"/*; do
+    if [[ -f "$file" ]]; then  # Check if it's a file
+        FILE_NAME=$(basename "$file")
+        FILE_SIZE_BYTES=$(stat -c%s "$file")
+        FILE_SIZE_HR=$(numfmt --to=iec-i --suffix=B $FILE_SIZE_BYTES)
+
+        if [[ $FILE_SIZE_BYTES -gt 1073741824 ]]; then  # Ask only if file is > 1GB
+            echo "Are you sure you want to upload this large file: $FILE_NAME ($FILE_SIZE_HR)? (y/n)"
+            read -r CONFIRM
+            
+            if [[ "$CONFIRM" != "y" ]]; then
+                echo "Skipping $FILE_NAME"
+                continue
+            fi
+        fi
+  
+        UPLOAD_ID=$(uuidgen)  # Generate a unique upload ID
+        UPLOAD_FOLDER="$NEXTCLOUD_URL/uploads/$USER_NAME/$UPLOAD_ID/"
+        FILE_SIZE=$(stat -c%s "$file")
+        CHUNK_SIZE=104857600  # 100MB
+        OFFSET=0
+        
+        # Create upload folder
+        curl -n -X MKCOL "$UPLOAD_FOLDER"
+
+        echo "Uploading: $file using chunked upload"
+        
+        while [ $OFFSET -lt $FILE_SIZE ]; do
+            dd if="$file" bs=$CHUNK_SIZE skip=$((OFFSET / CHUNK_SIZE)) count=1 2>/dev/null | \
+            curl -n -X PUT --data-binary @- "$UPLOAD_FOLDER$OFFSET" \
+            --header "Destination: $NEXTCLOUD_URL/files/$USER_NAME/$NEXTCLOUD_FOLDER$FILE_NAME"
+            OFFSET=$((OFFSET + CHUNK_SIZE))
+        done
+
+        echo "Starting combine for $file"
+        curl -n -X MOVE "$UPLOAD_FOLDER.file" \
+            --header "Destination: $NEXTCLOUD_URL/files/$USER_NAME/$NEXTCLOUD_FOLDER$FILE_NAME"
+
+        echo "Upload completed for $file"
+
+        echo "Upload folder: $UPLOAD_FOLDER"
+        curl -n -X DELETE "$UPLOAD_FOLDER"
+
+        echo "Deleted temp folder for $file"
+    fi
+done
+
+
+echo "All uploads completed."
+

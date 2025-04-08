@@ -1,0 +1,78 @@
+#!/bin/bash
+
+UPLOAD=false
+USER_NAME=""
+
+# Parse command-line arguments
+for arg in "$@"; do
+    case $arg in
+        --upload=*)
+            UPLOAD="${arg#*=}"
+            ;;
+        --username=*)
+            USER_NAME="${arg#*=}"
+            ;;
+        *)
+            echo "Invalid argument: $arg"
+            exit 1
+            ;;
+    esac
+done
+
+# Validate that username is provided if upload is enabled
+if [[ "$UPLOAD" == "True" && -z "$USER_NAME" ]]; then
+    echo "Error: --username must be provided when --upload=True"
+    exit 1
+fi
+
+spark-submit spark.py
+
+spark-submit combine.py
+#after combining remove the folder
+rm -rf "processed_nyc_taxi.parquet"
+
+# Define source and destination
+SOURCE_DIRS=("full_join.parquet" "daily_trips_zone.parquet" "daily_trips_borough.parquet")
+DEST_DIR="processed_data"
+
+# Create the destination directory if it doesn't exist
+mkdir -p "$DEST_DIR"
+
+# Loop through all provided source directories
+for SOURCE_DIR in "${SOURCE_DIRS[@]}"; do
+    # Check if the source directory exists
+    if [[ -d "$SOURCE_DIR" ]]; then
+        # Find the first Parquet file inside the source directory
+        PARQUET_FILE=$(find "$SOURCE_DIR" -type f -name "*.parquet" | head -n 1)
+
+        # Check if a Parquet file was found
+        if [[ -f "$PARQUET_FILE" ]]; then
+            # Extract folder name to use as filename
+            FOLDER_NAME=$(basename "$SOURCE_DIR")
+            DEST_FILE="$DEST_DIR/$FOLDER_NAME"
+            
+            # Move and rename the file
+            mv -f "$PARQUET_FILE" "$DEST_FILE"
+            echo "File moved and renamed successfully: $DEST_FILE"
+            
+            # Remove the source directory after processing
+            rm -rf "$SOURCE_DIR"
+        else
+            echo "No Parquet file found in $SOURCE_DIR"
+        fi
+    else
+        echo "Source directory $SOURCE_DIR does not exist"
+    fi
+done
+
+mkdir -p "final_csv"
+#pre-create views with duck db and export as csv
+duckdb -c ".read views.sql"
+
+#upload data to nextcloud if upload flag is set to true
+if [[ "$UPLOAD" == "True" ]]; then
+    echo "Uploading data for user: $USER_NAME"
+    ./upLoadData "$USER_NAME"
+else
+    echo "Skipping upload as --upload=False"
+fi
