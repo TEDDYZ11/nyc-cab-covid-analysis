@@ -1,6 +1,6 @@
 # NYC Taxi Trips During Early COVID-19 Pandemic
 
-## Team 1 Final Project
+## Final Project
 
 This project analyzes NYC taxi trips during the early months of the COVID-19 pandemic using a data pipeline.
 
