@@ -60,3 +60,11 @@ password your_secure_password
 Make sure to replace `your_nextcloud_server`, `your_username`, and `your_secure_password` with your actual credentials.
 
 > **Security Notice:** Never store plain-text credentials in publicly shared repositories.
+
+## 🚕 NYC Taxi Ridership During the COVID-19 Pandemic
+
+Explore the interactive dashboard below:
+
+🔗 [View Full Dashboard on Tableau Public](https://public.tableau.com/app/profile/zhihong.zhang2631/viz/NYCTaxiRidershipDuringtheCOVID-19Pandemic/Dashboard?publish=yes)
+
+![Preview](Dashboard.png)
