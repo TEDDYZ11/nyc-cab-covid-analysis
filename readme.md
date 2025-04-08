@@ -56,7 +56,6 @@ machine your_nextcloud_server
 login your_username
 password your_secure_password
 ```
-For now, only @jzhang502's server is supported
 
 Make sure to replace `your_nextcloud_server`, `your_username`, and `your_secure_password` with your actual credentials.
 
